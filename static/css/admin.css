@@ -1,0 +1,57 @@
+/* SafeTravels admin styles */
+.admin-body {
+  background: #f4f7fa;
+}
+.admin-nav {
+  background: #112d4e;
+}
+.admin-nav .brand,
+.admin-nav .nav-link {
+  color: #fff;
+}
+.admin-nav .nav-link {
+  opacity: 0.85;
+}
+.admin-nav .nav-link:hover {
+  color: #fff;
+  opacity: 1;
+}
+.admin-header {
+  background: #112d4e;
+  color: #fff;
+  padding: 38px 0;
+}
+.stat-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 21px;
+  border: 1px solid #e0e7ee;
+  height: 100%;
+}
+.stat-card p {
+  color: #6a7b8d;
+  margin: 0;
+}
+.stat-card h3 {
+  color: #163d67;
+  font-size: 27px;
+  margin: 8px 0 0;
+}
+.admin-table {
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e0e7ee;
+}
+.admin-table th {
+  background: #edf4f9;
+  color: #38516d;
+  font-size: 13px;
+}
+.admin-side-note {
+  background: #eaf4fb;
+  border-left: 4px solid #1777b6;
+  padding: 15px;
+  border-radius: 5px;
+  color: #34536d;
+}

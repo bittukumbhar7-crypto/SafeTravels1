@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flight Details | SafeTravels</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../static/css/style.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="site-nav">
+        <div class="container">
+          <a class="brand" href="/">Safe<span>Travels</span> </a>
+        </div>
+      </nav>
+    </header>
+    <main class="container section-space pt-5">
+      <div class="row">
+        <div class="col-lg-8">
+          <div class="content-card">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h2>
+                  {{ selected_flight[2] }}
+                  <small class="text-muted">{{ selected_flight[3] }}</small>
+                </h2>
+
+                <p class="text-muted">{{ selected_flight[4] }}</p>
+              </div>
+              <span class="badge-soft align-self-start">
+                {{ selected_flight[10].title() }}
+              </span>
+            </div>
+            <hr />
+
+            <div class="row text-center py-3">
+              <div class="col">
+                <strong class="d-block fs-4">
+                  {{ selected_flight[5].strftime("%I:%M %p") }}
+                </strong>
+
+                {{ selected_flight[4].split(" → ")[0] }}<br />
+
+                <small> {{ selected_flight[5].strftime("%d %b %Y") }} </small>
+              </div>
+
+              <div class="col">
+                <strong> {{ format_duration(selected_flight[7]) }} </strong>
+
+                <p class="text-muted mb-0">
+                  {% if selected_flight[8] == 0 %} Non-stop {% elif
+                  selected_flight[8] == 1 %} 1 stop {% else %} {{
+                  selected_flight[8] }} stops {% endif %}
+                </p>
+              </div>
+
+              <div class="col">
+                <strong class="d-block fs-4">
+                  {{ selected_flight[6].strftime("%I:%M %p") }}
+                </strong>
+
+                {{ selected_flight[4].split(" → ")[1] }}<br />
+
+                <small> {{ selected_flight[6].strftime("%d %b %Y") }} </small>
+              </div>
+            </div>
+
+            <hr />
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>Aircraft:</strong> Airbus A320neo</p>
+                <p>
+                  <strong>Baggage:</strong> 15 kg cabin + check-in allowance
+                </p>
+              </div>
+              <div class="col-md-6">
+                <p><strong>Fare:</strong> Saver Economy</p>
+                <p><strong>Meal:</strong> Available for purchase</p>
+              </div>
+            </div>
+            <div class="alert alert-light border mb-0">
+              <strong>Important information:</strong> Please carry a valid
+              government ID and report at the airport at least 2 hours before
+              departure.
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 mt-4 mt-lg-0">
+          <div class="content-card">
+            <h5>Fare summary</h5>
+
+            <div class="summary-row total">
+              <span>Total fare</span>
+              <strong> ₹{{ "{:,.2f}".format(selected_flight[11]) }} </strong>
+            </div>
+
+            <a
+              class="btn btn-primary w-100 mt-3"
+              href="{{ url_for('seat_select', flight_id=selected_flight[0]) }}"
+            >
+              Continue to Seat Selection
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
