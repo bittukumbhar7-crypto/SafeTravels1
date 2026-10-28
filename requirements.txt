@@ -1,3 +1,7 @@
 Flask
 Flask-MySQLdb
 requests
+python-dotenv
+pandas
+scikit-learn
+joblib

@@ -12,20 +12,30 @@
   </head>
   <body class="auth-page">
     <main class="container">
-      <form class="auth-card" action="dashboard.html">
-        <a class="brand d-block text-center mb-4" href="../customer/home.html"
-          >Safe<span>Travels</span>
+      <form
+        class="auth-card"
+        method="POST"
+        action="{{ url_for('log') }}"
+      >
+        <a class="brand d-block text-center mb-4" href="{{ url_for('home') }}">
+          Safe<span>Travels</span>
         </a>
-        <h2 class="text-center h3">Admin login</h2>
-        <p class="text-muted text-center mb-4">SafeTravels management portal</p>
-        <label class="form-label">Username / Email</label>
-        <input class="form-control mb-3" type="text" required />
+
+        <h2 class="text-center h3">SafeTravels login</h2>
+        <p class="text-muted text-center mb-4">Administrators are redirected automatically after login.</p>
+
+        <label class="form-label">Email</label>
+        <input class="form-control mb-3" type="email" name="txtemail" required />
+
         <label class="form-label">Password</label>
-        <input class="form-control mb-4" type="password" required />
-        <button class="btn btn-primary w-100">Login</button>
-        <p class="demo-note text-center mt-3">
-          Static UI only — authentication will be added later.
-        </p>
+        <input
+          class="form-control mb-4"
+          type="password"
+          name="txtpassword"
+          required
+        />
+
+        <button class="btn btn-primary w-100" type="submit">Login</button>
       </form>
     </main>
   </body>

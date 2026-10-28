@@ -13,7 +13,7 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="../../static/css/style.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   </head>
   <body class="auth-page">
     <main class="container">
@@ -23,8 +23,13 @@
         </a>
         <h2 class="text-center h3">Welcome back</h2>
         <p class="text-muted text-center mb-4">
-          Log in to manage your travel plans.
+          Log in to manage travel plans or the administration portal.
         </p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} py-2" role="alert">{{ message }}</div>
+          {% endfor %}
+        {% endwith %}
         <label class="form-label">Email</label>
         <input
           class="form-control mb-3"
@@ -48,7 +53,6 @@
         </div>  
         <button class="btn btn-primary w-100">Login</button>
         <hr>
-        <font color="red">{{message}}</font>
         <p class="text-center mt-4 mb-0">
           New to SafeTravels? <a href="/signup">Create Account</a>
         </p>

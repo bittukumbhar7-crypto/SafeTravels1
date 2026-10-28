@@ -160,41 +160,26 @@
             </aside>
             <div class="col-md-9 mt-4 mt-md-0">
               <div class="content-card" id="prediction">
-                <span class="text-primary fw-bold">DEMO INTERFACE</span>
-                <h3 class="mt-2">Predict Your Flight Price</h3>
-                <p class="text-muted">
-                  This UI will connect to your machine-learning model later.
-                </p>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <select class="form-select">
-                      <option>Air India</option>
-                    </select>
+                <h3>Flight price estimate</h3>
+                <p class="text-muted">This optional ML baseline uses only airline data from the supplied historical dataset. It is not route-specific, is not a guaranteed future fare, and never replaces a live iGNav fare.</p>
+                {% if model_available %}
+                <form method="post" action="{{ url_for('predict_price') }}" class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label" for="prediction-airline">Airline</label>
+                    <input class="form-control" id="prediction-airline" name="airline" value="{{ prediction_airline|default('') }}" placeholder="For example: Air India" required />
                   </div>
-                  <div class="col-md-6">
-                    <select class="form-select">
-                      <option>0 Stops</option>
-                    </select>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-outline-primary w-100">Estimate fare</button>
                   </div>
-                  <div class="col-md-6">
-                    <input
-                      class="form-control"
-                      type="text"
-                      placeholder="Duration e.g. 2h 15m"
-                    />
-                  </div>
-                  <div class="col-md-6">
-                    <input
-                      class="form-control"
-                      type="number"
-                      placeholder="Days left to travel"
-                    />
-                  </div>
-                </div>
-                <div class="alert alert-warning mt-3 mb-0">
-                  Prediction result will appear here after the ML model is
-                  connected.
-                </div>
+                </form>
+                {% if predicted_fare is defined %}
+                <div class="alert alert-info mt-3 mb-0"><strong>Estimated fare: ₹{{ "{:,.2f}".format(predicted_fare) }}</strong><br><small>Airline-only baseline for {{ prediction_airline }}. Compare it with live provider results; do not use it as a booking price.</small></div>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-warning mb-0">{{ model_message }}</div>
+                {% endif %}
+                {% if prediction_error %}<div class="alert alert-danger mt-3 mb-0">{{ prediction_error }}</div>{% endif %}
+                {% if model_metrics %}<p class="demo-note mt-3 mb-0">Held-out evaluation: MAE ₹{{ "{:,.0f}".format(model_metrics.mae) }}, RMSE ₹{{ "{:,.0f}".format(model_metrics.rmse) }}, R² {{ "{:.2f}".format(model_metrics.r2) }}. {{ model_message }}</p>{% endif %}
               </div>
             </div>
           </div>

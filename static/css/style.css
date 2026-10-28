@@ -494,3 +494,38 @@ a:hover {
     font-size: 27px;
   }
 }
+
+.seat-choice {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.seat-choice input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.seat-choice .seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.seat-choice input:checked + .seat {
+  background-color: #0b3c6f;
+  color: #fff;
+  border-color: #0b3c6f;
+}
+
+.seat-choice:hover .seat {
+  border-color: #0b3c6f;
+}
+
+.seat-choice input:focus-visible + .seat {
+  outline: 2px solid #0b3c6f;
+  outline-offset: 2px;
+}
