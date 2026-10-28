@@ -182,48 +182,96 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def log():
     if request.method == "POST":
-        email, password = request.form.get("txtemail", "").strip().lower(), request.form.get("txtpassword", "")
-        relationship = db_cursor()
-        relationship.execute("SELECT * FROM users WHERE email=%s", (email,))
-        user = relationship.fetchone()
+        email = request.form.get("txtemail", "").strip().lower()
+        password = request.form.get("txtpassword", "")
+
+        # %s is a parameter placeholder. It keeps user input out of the SQL text.
+        cursor = db_cursor()
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+        user = cursor.fetchone()
+
         if not user:
-            relationship.close(); flash("Email or password is incorrect.", "danger"); return render_template("customer/login.html")
-        stored = user.get("password", "")
-        valid = check_password_hash(stored, password) if stored.startswith(("pbkdf2:", "scrypt:")) else stored == password
-        if not valid:
-            relationship.close(); flash("Email or password is incorrect.", "danger"); return render_template("customer/login.html")
+            cursor.close()
+            flash("Email or password is incorrect.", "danger")
+            return render_template("customer/login.html")
+
+        stored_password = user.get("password", "")
+        if stored_password.startswith(("pbkdf2:", "scrypt:")):
+            password_is_valid = check_password_hash(stored_password, password)
+        else:
+            # Existing student-project accounts may use plaintext passwords.
+            password_is_valid = stored_password == password
+
+        if not password_is_valid:
+            cursor.close()
+            flash("Email or password is incorrect.", "danger")
+            return render_template("customer/login.html")
+
         account_is_admin = is_admin_account(user.get("is_admin"))
-        if not stored.startswith(("pbkdf2:", "scrypt:")):
-            relationship.execute("UPDATE users SET password=%s WHERE user_id=%s", (generate_password_hash(password), user["user_id"]))
+
+        # Upgrade an old plaintext password only after a successful login.
+        if not stored_password.startswith(("pbkdf2:", "scrypt:")):
+            hashed_password = generate_password_hash(password)
+            cursor.execute(
+                "UPDATE users SET password=%s WHERE user_id=%s",
+                (hashed_password, user["user_id"]),
+            )
             mysql.connection.commit()
-        relationship.close()
-        session.clear(); session["user_id"] = user["user_id"]; session["name"] = user.get("full_name", "Traveller").split()[0]
-        return redirect(url_for("dash") if account_is_admin else url_for("home"))
+
+        cursor.close()
+
+        # Clearing the old session prevents one account from inheriting another's session.
+        session.clear()
+        session["user_id"] = user["user_id"]
+        session["name"] = user.get("full_name", "Traveller").split()[0]
+
+        if account_is_admin:
+            return redirect(url_for("dash"))
+        return redirect(url_for("home"))
+
     return render_template("customer/login.html")
 
 
 @app.route("/logout")
 def logout():
-    session.clear(); flash("You have been logged out.", "success")
+    session.clear()
+    flash("You have been logged out.", "success")
     return redirect(url_for("home"))
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        name, email = request.form.get("txtname", "").strip(), request.form.get("txtemail", "").strip().lower()
-        mobile, password, confirmation = request.form.get("txtmob", "").strip(), request.form.get("txtpassword", ""), request.form.get("txtconfirm", "")
+        name = request.form.get("txtname", "").strip()
+        email = request.form.get("txtemail", "").strip().lower()
+        mobile = request.form.get("txtmob", "").strip()
+        password = request.form.get("txtpassword", "")
+        confirmation = request.form.get("txtconfirm", "")
+
         if not name or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) or not mobile or len(password) < 8:
             flash("Enter a name, valid email/mobile, and an 8-character password.", "danger")
         elif password != confirmation:
             flash("Passwords do not match.", "danger")
         else:
-            relationship = db_cursor(); relationship.execute("SELECT user_id FROM users WHERE email=%s OR mobile=%s", (email, mobile))
-            if relationship.fetchone():
-                relationship.close(); flash("That email or mobile is already registered.", "danger")
+            cursor = db_cursor()
+            cursor.execute(
+                "SELECT user_id FROM users WHERE email=%s OR mobile=%s",
+                (email, mobile),
+            )
+            existing_user = cursor.fetchone()
+
+            if existing_user:
+                cursor.close()
+                flash("That email or mobile is already registered.", "danger")
             else:
-                relationship.execute("INSERT INTO users(full_name,email,mobile,password) VALUES (%s,%s,%s,%s)", (name, email, mobile, generate_password_hash(password)))
-                mysql.connection.commit(); relationship.close(); flash("Account created. Please log in.", "success")
+                hashed_password = generate_password_hash(password)
+                cursor.execute(
+                    "INSERT INTO users(full_name,email,mobile,password) VALUES (%s,%s,%s,%s)",
+                    (name, email, mobile, hashed_password),
+                )
+                mysql.connection.commit()
+                cursor.close()
+                flash("Account created. Please log in.", "success")
                 return redirect(url_for("log"))
     return render_template("customer/signup.html")
 
@@ -231,41 +279,98 @@ def signup():
 @app.route("/searchflights", methods=["GET", "POST"])
 @login_required
 def searfly():
-    if request.method == "GET": return prediction_page()
-    source, destination = request.form.get("source_city", "").strip(), request.form.get("destination_city", "").strip()
-    departure_text, return_text = request.form.get("departure_date", ""), request.form.get("return_date", "")
-    travel_class, stops_filter = request.form.get("travel_class", "Economy"), request.form.get("stops", "Any")
+    if request.method == "GET":
+        return prediction_page()
+
+    source = request.form.get("source_city", "").strip()
+    destination = request.form.get("destination_city", "").strip()
+    departure_text = request.form.get("departure_date", "")
+    return_text = request.form.get("return_date", "")
+    travel_class = request.form.get("travel_class", "Economy")
+    stops_filter = request.form.get("stops", "Any")
+
     try:
-        travellers, departure = int(request.form.get("travellers", "0")), datetime.strptime(departure_text, "%Y-%m-%d").date()
+        travellers = int(request.form.get("travellers", "0"))
+        departure = datetime.strptime(departure_text, "%Y-%m-%d").date()
         return_date = datetime.strptime(return_text, "%Y-%m-%d").date() if return_text else None
     except ValueError:
-        flash("Enter a valid date and traveller count.", "danger"); return render_template("customer/search_flights.html")
+        flash("Enter a valid date and traveller count.", "danger")
+        return prediction_page()
+
     if source.lower() not in city_codes or destination.lower() not in city_codes or source.lower() == destination.lower():
-        flash("Choose two different supported cities.", "danger"); return render_template("customer/search_flights.html")
+        flash("Choose two different supported cities.", "danger")
+        return prediction_page()
+
     if departure < date.today() or (return_date and return_date < departure) or not 1 <= travellers <= 9 or stops_filter not in {"Any", "Non-stop", "1", "2"}:
-        flash("Check your dates, stops filter, and traveller count (1–9).", "danger"); return render_template("customer/search_flights.html")
-    relationship = db_cursor()
-    relationship.execute("""INSERT INTO flight_searches (user_id,source_city,destination_city,departure_date,return_date,travellers,travel_class,stops_filter)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""", (session["user_id"], source, destination, departure, return_date, travellers, travel_class, stops_filter))
-    search_id = relationship.lastrowid; mysql.connection.commit()
+        flash("Check your dates, stops filter, and traveller count (1–9).", "danger")
+        return prediction_page()
+
+    cursor = db_cursor()
+    cursor.execute(
+        """INSERT INTO flight_searches
+           (user_id, source_city, destination_city, departure_date, return_date,
+            travellers, travel_class, stops_filter)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+        (session["user_id"], source, destination, departure, return_date, travellers, travel_class, stops_filter),
+    )
+    search_id = cursor.lastrowid
+    mysql.connection.commit()
+
     api_key = os.getenv("IGNAV_API_KEY")
     if not api_key:
-        relationship.close(); flash("Flight search is not configured. Add IGNAV_API_KEY to .env.", "danger"); return render_template("customer/search_flights.html")
-    data = {"origin": city_codes[source.lower()], "destination": city_codes[destination.lower()], "departure_date": departure_text, "adults": travellers, "cabin_class": travel_class.lower().replace(" ", "_"), "market": "IN"}
-    if stops_filter != "Any": data["max_stops"] = 0 if stops_filter == "Non-stop" else int(stops_filter)
+        cursor.close()
+        flash("Flight search is not configured. Add IGNAV_API_KEY to .env.", "danger")
+        return prediction_page()
+
+    api_data = {
+        "origin": city_codes[source.lower()],
+        "destination": city_codes[destination.lower()],
+        "departure_date": departure_text,
+        "adults": travellers,
+        "cabin_class": travel_class.lower().replace(" ", "_"),
+        "market": "IN",
+    }
+    if stops_filter != "Any":
+        api_data["max_stops"] = 0 if stops_filter == "Non-stop" else int(stops_filter)
+
     try:
-        response = requests.post("https://ignav.com/api/fares/one-way", headers={"X-Api-Key": api_key, "Content-Type": "application/json"}, json=data, timeout=20)
-        response.raise_for_status(); itineraries = response.json().get("itineraries", [])
+        response = requests.post(
+            "https://ignav.com/api/fares/one-way",
+            headers={"X-Api-Key": api_key, "Content-Type": "application/json"},
+            json=api_data,
+            timeout=20,
+        )
+        response.raise_for_status()
+        itineraries = response.json().get("itineraries", [])
     except (requests.RequestException, ValueError):
-        relationship.close(); flash("The flight provider could not return results. Please try again.", "danger"); return render_template("customer/search_flights.html")
+        cursor.close()
+        flash("The flight provider could not return results. Please try again.", "danger")
+        return prediction_page()
+
     flights = []
     for raw in itineraries:
         flight = parse_api_flight(raw)
-        if not flight or flight["price"] is None or (stops_filter != "Any" and flight["stops"] > data["max_stops"]): continue
-        relationship.execute("""INSERT INTO flight_results (search_id,airline,flight_number,route,departure_datetime,arrival_datetime,duration_minutes,stops,layover,travel_class,price,price_status)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", (search_id, flight["airline"], flight["flight_number"], flight["route"], flight["departure_datetime"], flight["arrival_datetime"], flight["duration_minutes"], flight["stops"], flight["layover"], flight["travel_class"], flight["price"], flight["price_status"]))
-        flight["flight_id"] = relationship.lastrowid; flights.append(flight)
-    mysql.connection.commit(); relationship.close()
+        if not flight or flight["price"] is None:
+            continue
+        if stops_filter != "Any" and flight["stops"] > api_data["max_stops"]:
+            continue
+
+        cursor.execute(
+            """INSERT INTO flight_results
+               (search_id, airline, flight_number, route, departure_datetime,
+                arrival_datetime, duration_minutes, stops, layover, travel_class,
+                price, price_status)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (search_id, flight["airline"], flight["flight_number"], flight["route"],
+             flight["departure_datetime"], flight["arrival_datetime"], flight["duration_minutes"],
+             flight["stops"], flight["layover"], flight["travel_class"], flight["price"],
+             flight["price_status"]),
+        )
+        flight["flight_id"] = cursor.lastrowid
+        flights.append(flight)
+
+    mysql.connection.commit()
+    cursor.close()
     return render_template("customer/flight_results.html", flights=flights, origin=city_codes[source.lower()], destination_code=city_codes[destination.lower()])
 
 
@@ -291,26 +396,53 @@ def predict_price():
 @app.route("/flight_details")
 @login_required
 def flight_details():
-    flight_id = request.args.get("flight_id", type=int); selected_flight = user_flight(flight_id) if flight_id else None
-    if not selected_flight: abort(404)
+    flight_id = request.args.get("flight_id", type=int)
+    selected_flight = user_flight(flight_id) if flight_id else None
+    if not selected_flight:
+        abort(404)
     return render_template("customer/flight_details.html", selected_flight=selected_flight)
 
 
 @app.route("/seat_selection")
 @login_required
 def seat_select():
-    flight_id = request.args.get("flight_id", type=int); selected_flight = user_flight(flight_id) if flight_id else None
-    if not selected_flight: abort(404)
-    return render_template("customer/seat_selection.html", selected_flight=selected_flight, travellers=int(selected_flight["travellers"]), occupied_seats=occupied_seats(flight_id), selected_seats=[])
+    flight_id = request.args.get("flight_id", type=int)
+    selected_flight = user_flight(flight_id) if flight_id else None
+    if not selected_flight:
+        abort(404)
+
+    traveller_count = int(selected_flight["travellers"])
+    unavailable_seats = occupied_seats(flight_id)
+    return render_template(
+        "customer/seat_selection.html",
+        selected_flight=selected_flight,
+        travellers=traveller_count,
+        occupied_seats=unavailable_seats,
+        selected_seats=[],
+    )
 
 
 @app.route("/passenger_details")
 @login_required
 def pass_det():
-    flight_id = request.args.get("flight_id", type=int); selected_flight = user_flight(flight_id) if flight_id else None
-    if not selected_flight: abort(404)
-    seats, error = validate_seats(flight_id, request.args.getlist("seat_number"), int(selected_flight["travellers"]))
-    if error: return render_template("customer/seat_selection.html", selected_flight=selected_flight, travellers=int(selected_flight["travellers"]), occupied_seats=occupied_seats(flight_id), selected_seats=request.args.getlist("seat_number"), error_message=error), 400
+    flight_id = request.args.get("flight_id", type=int)
+    selected_flight = user_flight(flight_id) if flight_id else None
+    if not selected_flight:
+        abort(404)
+
+    traveller_count = int(selected_flight["travellers"])
+    selected_seats = request.args.getlist("seat_number")
+    seats, error = validate_seats(flight_id, selected_seats, traveller_count)
+    if error:
+        return render_template(
+            "customer/seat_selection.html",
+            selected_flight=selected_flight,
+            travellers=traveller_count,
+            occupied_seats=occupied_seats(flight_id),
+            selected_seats=selected_seats,
+            error_message=error,
+        ), 400
+
     return render_template("customer/passenger_details.html", selected_flight=selected_flight, selected_seats=seats, travellers=len(seats), form_data={})
 
 
